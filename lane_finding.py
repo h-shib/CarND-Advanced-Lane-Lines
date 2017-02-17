@@ -38,6 +38,18 @@ def undistort(img, objpoints, imgpoints):
 	dst = cv2.undistort(img, mtx, dist, None, mtx)
 	return dst
 
+def perspective_transform(undist_img):
+	offset = 100
+	img_size = (undist_img.shape[1], undist_img.shape[0])
+	offset = 100
+	src = np.float32([[600, 430], [700, 430], [1150, 720], [200, 720]])
+	dst = np.float32([[offset, offset], [img_size[0]-offset, offset],
+						[img_size[0]-offset, img_size[1]],
+						[offset, img_size[1]]])
+	M = cv2.getPerspectiveTransform(src, dst)
+	warped = cv2.warpPerspective(undist_img, M, img_size)
+	return warped
+
 def mag_thresh(img, sobel_kernel=3, thresh=(0, 255)):
 	# Calculate gradient magnitude
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -85,12 +97,13 @@ def main():
 	objpoints = dist_data['objpoints']
 	imgpoints = dist_data['imgpoints']
 
-	image = plt.imread('test_images/test1.jpg')
+	image = plt.imread('test_images/test2.jpg')
 	plt.imshow(image)
 	plt.show()
 	dst = undistort(image, objpoints, imgpoints)
-	thresh_binary = apply_threshold(dst)
-	plt.imshow(thresh_binary, cmap='gray')
+	#thresh_binary = apply_threshold(dst)
+	per = perspective_transform(dst)
+	plt.imshow(per)
 	plt.show()
 
 
