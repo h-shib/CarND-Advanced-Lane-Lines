@@ -61,12 +61,19 @@ def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
 	dir_binary[(direction>=thresh[0]) & (direction<=thresh[1])] = 1
 	return dir_binary
 
-def apply_threshold(img, sobel_kernel=3):
+def color_threshold(img, thresh=(0, 255)):
+	hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+	s_channel = hls[:, :, 2]
+	s_binary = np.zeros_like(s_channel)
+	s_binary[(s_channel > thresh[0]) & (s_channel <= thresh[1])] = 1
+	return s_binary
 
-	mag_binary = mag_thresh(img, sobel_kernel=sobel_kernel, thresh=(40, 100))
+def apply_threshold(img, sobel_kernel=3):
+	mag_binary = mag_thresh(img, sobel_kernel=sobel_kernel, thresh=(30, 100))
 	dir_binary = dir_threshold(img, sobel_kernel=sobel_kernel, thresh=(0.7, 1.3))
+	s_binary = color_threshold(img, thresh=(170, 255))
 	combined_binary = np.zeros_like(dir_binary)
-	combined_binary[(mag_binary == 1) & (dir_binary == 1)] = 1
+	combined_binary[((mag_binary == 1) & (dir_binary == 1)) | (s_binary == 1)] = 1
 	return combined_binary
 
 
