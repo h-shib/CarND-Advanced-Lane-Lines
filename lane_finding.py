@@ -4,6 +4,7 @@ import glob
 import os
 import pickle
 import matplotlib.pyplot as plt
+from moviepy.editor import VideoFileClip
 
 def camera_calibration():
 	if os.path.exists('dist_pickle.p'):
@@ -110,8 +111,9 @@ def draw_lane_line(warped, left_fitx, right_fitx, ploty, Minv, image, undist):
 	newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
 	# Combine the result with the original image
 	result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
-	plt.imshow(result)
-	plt.show()
+	#plt.imshow(result)
+	#plt.show()
+	return result
 
 def find_lines(binary_warped, Minv, image, undist):
 	# Assuming you have created a warped binary image called "binary_warped"
@@ -195,13 +197,28 @@ def find_lines(binary_warped, Minv, image, undist):
 	plt.xlim(0, 1280)
 	plt.ylim(720, 0)
 
-	draw_lane_line(binary_warped, left_fitx, right_fitx, ploty, Minv, image, undist)
+	result = draw_lane_line(binary_warped, left_fitx, right_fitx, ploty, Minv, image, undist)
+	return result
 
+
+def process_image(image):
+	dist_data = pickle.load(open('dist_pickle.p', 'rb'))
+	objpoints = dist_data['objpoints']
+	imgpoints = dist_data['imgpoints']
+
+	#image = plt.imread('test_images/straight_lines2.jpg')
+	# image = plt.imread('test_images/straight_lines2.jpg')
+	dst = undistort(image, objpoints, imgpoints)
+	thresh_binary = apply_threshold(dst)
+	warped_binary, Minv = perspective_transform(thresh_binary)
+	result = find_lines(warped_binary, Minv, image, dst)
+	return result
 
 def main():
 	# run pipeline
 	camera_calibration()
 
+	"""
 	dist_data = pickle.load(open('dist_pickle.p', 'rb'))
 	objpoints = dist_data['objpoints']
 	imgpoints = dist_data['imgpoints']
@@ -216,6 +233,12 @@ def main():
 	find_lines(warped_binary, Minv, image, dst)
 	plt.imshow(warped_binary, cmap='gray')
 	plt.show()
+	"""
+	output = 'test.mp4'
+	clip1 = VideoFileClip("project_video.mp4")
+	print(clip1)
+	clip = clip1.fl_image(process_image)
+	clip.write_videofile(output, audio=False)
 
 
 if __name__ == '__main__':
