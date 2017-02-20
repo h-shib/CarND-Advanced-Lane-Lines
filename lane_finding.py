@@ -7,16 +7,17 @@ import matplotlib.pyplot as plt
 from moviepy.editor import VideoFileClip
 
 def camera_calibration():
+	# skip camera calibration if pickled file exists.
 	if os.path.exists('dist_pickle.p'):
 		print('file exists.')
 		return
 
+	# prepare for chessboard corners
 	objp = np.zeros((6*9,3), np.float32)
 	objp[:,:2] = np.mgrid[0:9,0:6].T.reshape(-1,2)
 
 	objpoints = [] # 3d points in real world space
 	imgpoints = [] # 2d points in image plane.
-
 	images = glob.glob('./camera_cal/calibration*.jpg')
 
 	for fname in images:
@@ -33,31 +34,13 @@ def camera_calibration():
 	pickle.dump(dist_data, open('dist_pickle.p', 'wb'))
 	print('dist data saved.')
 
-
 def undistort(img, objpoints, imgpoints):
 	retval, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img.shape[0:2], None, None)
-	dst = cv2.undistort(img, mtx, dist, None, mtx)
-	return dst
-
-def perspective_transform(undist_img):
-	offset_x = 100
-	offset_y = 130
-	offset = 200
-	img_size = (undist_img.shape[1], undist_img.shape[0])
-	center_x = img_size[0]/2.
-	center_y = img_size[1]/2.
-	src = np.float32([[center_x-offset_x, center_y+offset_y], [center_x+offset_x, center_y+offset_y],
-						[img_size[0]-200, img_size[1]], [200, img_size[1]]])
-	dst = np.float32([[offset, offset], [img_size[0]-offset, offset],
-						[img_size[0]-offset, img_size[1]],
-						[offset, img_size[1]]])
-	M = cv2.getPerspectiveTransform(src, dst)
-	Minv = cv2.getPerspectiveTransform(dst, src)
-	warped = cv2.warpPerspective(undist_img, M, img_size)
-	return warped, Minv
+	undist = cv2.undistort(img, mtx, dist, None, mtx)
+	return undist
 
 def mag_thresh(img, sobel_kernel=3, thresh=(0, 255)):
-	# Calculate gradient magnitude
+	# detect lane lines by gradient magnitude
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
@@ -68,7 +51,7 @@ def mag_thresh(img, sobel_kernel=3, thresh=(0, 255)):
     return mag_binary
 
 def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
-	# Calculate gradient direction
+	# detect lane lines by gradient direction
 	gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 	sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
 	sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
@@ -80,6 +63,7 @@ def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
 	return dir_binary
 
 def color_threshold(img, thresh=(0, 255)):
+	# detect lane lines by saturation
 	hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
 	s_channel = hls[:, :, 2]
 	s_binary = np.zeros_like(s_channel)
@@ -87,6 +71,7 @@ def color_threshold(img, thresh=(0, 255)):
 	return s_binary
 
 def apply_threshold(img, sobel_kernel=3):
+	# apply multiple threshold functions
 	mag_binary = mag_thresh(img, sobel_kernel=sobel_kernel, thresh=(50, 200))
 	dir_binary = dir_threshold(img, sobel_kernel=sobel_kernel, thresh=(0.7, 1.3))
 	s_binary = color_threshold(img, thresh=(170, 255))
@@ -94,6 +79,24 @@ def apply_threshold(img, sobel_kernel=3):
 	combined_binary[((mag_binary == 1) & (dir_binary == 1)) | (s_binary == 1)] = 1
 	return combined_binary
 
+def perspective_transform(undist_img):
+	offset_x = 100 # offset for x direction of undistorted image
+	offset_y = 130 # offset for y direction of undistorted image
+	offset = 200 # offset for transformed image
+
+	img_size = (undist_img.shape[1], undist_img.shape[0])
+	center_x = img_size[0]/2.
+	center_y = img_size[1]/2.
+	
+	src = np.float32([[center_x-offset_x, center_y+offset_y], [center_x+offset_x, center_y+offset_y],
+						[img_size[0]-200, img_size[1]], [200, img_size[1]]])
+	dst = np.float32([[offset, offset], [img_size[0]-offset, offset],
+						[img_size[0]-offset, img_size[1]], offset, img_size[1]]])
+	
+	M = cv2.getPerspectiveTransform(src, dst)
+	Minv = cv2.getPerspectiveTransform(dst, src)
+	warped = cv2.warpPerspective(undist_img, M, img_size)
+	return warped, Minv
 
 def draw_lane_line(warped, left_fitx, right_fitx, ploty, Minv, image, undist):
 	warp_zero = np.zeros_like(warped).astype(np.uint8)
@@ -202,42 +205,29 @@ def find_lines(binary_warped, Minv, image, undist):
 
 
 def process_image(image):
+	"""
+	image processing pipeline
+	read image frames from video and draw lane line
+	"""
+	# camera calibration and undistort image
 	dist_data = pickle.load(open('dist_pickle.p', 'rb'))
 	objpoints = dist_data['objpoints']
 	imgpoints = dist_data['imgpoints']
+	undist_img = undistort(image, objpoints, imgpoints)
 
-	#image = plt.imread('test_images/straight_lines2.jpg')
-	# image = plt.imread('test_images/straight_lines2.jpg')
-	dst = undistort(image, objpoints, imgpoints)
-	thresh_binary = apply_threshold(dst)
-	warped_binary, Minv = perspective_transform(thresh_binary)
-	result = find_lines(warped_binary, Minv, image, dst)
+	thresh_binary = apply_threshold(dst) # find lane line by threshold function
+	warped_binary, Minv = perspective_transform(thresh_binary) # get warped binary image
+	result = find_lines(warped_binary, Minv, image, dst) # find lane lines and draw area
 	return result
 
 def main():
-	# run pipeline
+	# prepare for camera calibration
 	camera_calibration()
 
-	"""
-	dist_data = pickle.load(open('dist_pickle.p', 'rb'))
-	objpoints = dist_data['objpoints']
-	imgpoints = dist_data['imgpoints']
-
-	#image = plt.imread('test_images/straight_lines2.jpg')
-	image = plt.imread('test_images/straight_lines2.jpg')
-	plt.imshow(image)
-	plt.show()
-	dst = undistort(image, objpoints, imgpoints)
-	thresh_binary = apply_threshold(dst)
-	warped_binary, Minv = perspective_transform(thresh_binary)
-	find_lines(warped_binary, Minv, image, dst)
-	plt.imshow(warped_binary, cmap='gray')
-	plt.show()
-	"""
-	output = 'test.mp4'
-	clip1 = VideoFileClip("project_video.mp4")
-	print(clip1)
-	clip = clip1.fl_image(process_image)
+	# apply process_image function to the video
+	output = 'test2.mp4'
+	clip_input = VideoFileClip("project_video.mp4")
+	clip = clip_input.fl_image(process_image)
 	clip.write_videofile(output, audio=False)
 
 
