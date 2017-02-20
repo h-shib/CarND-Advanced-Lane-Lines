@@ -91,8 +91,8 @@ def perspective_transform(undist_img):
 	src = np.float32([[center_x-offset_x, center_y+offset_y], [center_x+offset_x, center_y+offset_y],
 						[img_size[0]-200, img_size[1]], [200, img_size[1]]])
 	dst = np.float32([[offset, offset], [img_size[0]-offset, offset],
-						[img_size[0]-offset, img_size[1]], offset, img_size[1]]])
-	
+						[img_size[0]-offset, img_size[1]], [offset, img_size[1]]])
+
 	M = cv2.getPerspectiveTransform(src, dst)
 	Minv = cv2.getPerspectiveTransform(dst, src)
 	warped = cv2.warpPerspective(undist_img, M, img_size)
@@ -117,6 +117,20 @@ def draw_lane_line(warped, left_fitx, right_fitx, ploty, Minv, image, undist):
 	#plt.imshow(result)
 	#plt.show()
 	return result
+
+def calc_curvature(ploty, leftx, rightx):
+	# Define conversions in x and y from pixels space to meters
+	ym_per_pix = 30/720 # meters per pixel in y dimension
+	xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+	# Fit new polynomials to x,y in world space
+	left_fit_cr = np.polyfit(ploty*ym_per_pix, leftx*xm_per_pix, 2)
+	right_fit_cr = np.polyfit(ploty*ym_per_pix, rightx*xm_per_pix, 2)
+	# Calculate the new radii of curvature
+	left_curverad = ((1 + (2*left_fit_cr[0]*np.max(ploty)*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+	right_curverad = ((1 + (2*right_fit_cr[0]*np.max(ploty)*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+	# Now our radius of curvature is in meters
+	return (left_curverad, 'm', right_curverad, 'm')
 
 def find_lines(binary_warped, Minv, image, undist):
 	# Assuming you have created a warped binary image called "binary_warped"
@@ -200,6 +214,8 @@ def find_lines(binary_warped, Minv, image, undist):
 	plt.xlim(0, 1280)
 	plt.ylim(720, 0)
 
+	curvatures = calc_curvature(ploty, left_fitx, right_fitx)
+	print(curvatures)
 	result = draw_lane_line(binary_warped, left_fitx, right_fitx, ploty, Minv, image, undist)
 	return result
 
@@ -215,20 +231,28 @@ def process_image(image):
 	imgpoints = dist_data['imgpoints']
 	undist_img = undistort(image, objpoints, imgpoints)
 
-	thresh_binary = apply_threshold(dst) # find lane line by threshold function
+	thresh_binary = apply_threshold(undist_img) # find lane line by threshold function
 	warped_binary, Minv = perspective_transform(thresh_binary) # get warped binary image
-	result = find_lines(warped_binary, Minv, image, dst) # find lane lines and draw area
+	result = find_lines(warped_binary, Minv, image, undist_img) # find lane lines and draw area
 	return result
 
 def main():
 	# prepare for camera calibration
 	camera_calibration()
 
+	# debug
+	image = plt.imread('test_images/test3.jpg')
+	result = process_image(image)
+	plt.imshow(result)
+	plt.show()
+
 	# apply process_image function to the video
+	"""
 	output = 'test2.mp4'
 	clip_input = VideoFileClip("project_video.mp4")
 	clip = clip_input.fl_image(process_image)
 	clip.write_videofile(output, audio=False)
+	"""
 
 
 if __name__ == '__main__':
