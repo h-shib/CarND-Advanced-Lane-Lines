@@ -217,6 +217,15 @@ def main():
 	plt.imshow(result)
 	plt.show()
 
+	input_dir = "test_images"
+	output_dir = "output_images"
+
+	for fname in os.listdir(input_dir):
+		image = plt.imread(os.path.join(input_dir, fname))
+		result_image = process_image(image)
+		plt.imsave(os.path.join(output_dir, fname), result_image)
+
+
 	# apply process_image function to the video
 	"""
 	output = 'test2.mp4'
