@@ -208,7 +208,6 @@ def find_lines(binary_warped, Minv, image, undist):
 
 	out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
 	out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
-	plt.imshow(out_img)
 	plt.plot(left_fitx, ploty, color='yellow')
 	plt.plot(right_fitx, ploty, color='yellow')
 	plt.xlim(0, 1280)
@@ -216,6 +215,8 @@ def find_lines(binary_warped, Minv, image, undist):
 
 	curvatures = calc_curvature(ploty, left_fitx, right_fitx)
 	print(curvatures)
+	offset_from_center = (binary_warped.shape[1]/2 - (left_fitx[-1]+right_fitx[-1])/2) * 3.7/700
+	print(left_fitx[-1], right_fitx[-1], offset_from_center, 'm')
 	result = draw_lane_line(binary_warped, left_fitx, right_fitx, ploty, Minv, image, undist)
 	return result
 
@@ -241,7 +242,7 @@ def main():
 	camera_calibration()
 
 	# debug
-	image = plt.imread('test_images/test3.jpg')
+	image = plt.imread('test_images/test5.jpg')
 	result = process_image(image)
 	plt.imshow(result)
 	plt.show()
