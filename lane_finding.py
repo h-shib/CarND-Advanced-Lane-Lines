@@ -217,6 +217,7 @@ def main():
 	plt.imshow(result)
 	plt.show()
 
+	# apply process_image function to the test images
 	input_dir = "test_images"
 	output_dir = "output_images"
 
@@ -224,7 +225,6 @@ def main():
 		image = plt.imread(os.path.join(input_dir, fname))
 		result_image = process_image(image)
 		plt.imsave(os.path.join(output_dir, fname), result_image)
-
 
 	# apply process_image function to the video
 	"""
