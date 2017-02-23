@@ -8,10 +8,12 @@ from moviepy.editor import VideoFileClip
 
 
 class Lane():
-	def __init__(self, objpoints, imgpoints):
+	def __init__(self, img_size, objpoints, imgpoints):
+		self.img_size = img_size
 		self.objpoints = objpoints
 		self.imgpoints = imgpoints
 		self.M = None
+		self.Minv = None
 
 	def undistort(self, image):
 		retval, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(self.objpoints, self.imgpoints, image.shape[0:2], None, None)
@@ -57,24 +59,26 @@ class Lane():
 		combined_binary[((mag_binary == 1) & (dir_binary == 1)) | (s_binary == 1)] = 1
 		return combined_binary
 
-	def perspective_transform(undist_img):
+	def warp_image(self, undist_img):
+		if self.M:
+			return cv2.warpPerspective(undist_img, self.M, self.img_size)
 		offset_x = 100 # offset for x direction of undistorted image
 		offset_y = 130 # offset for y direction of undistorted image
 		offset = 200 # offset for transformed image
-
-		img_size = (undist_img.shape[1], undist_img.shape[0])
 		center_x = img_size[0]/2.
 		center_y = img_size[1]/2.
 		
 		src = np.float32([[center_x-offset_x, center_y+offset_y], [center_x+offset_x, center_y+offset_y],
-							[img_size[0]-200, img_size[1]], [200, img_size[1]]])
-		dst = np.float32([[offset, offset], [img_size[0]-offset, offset],
-							[img_size[0]-offset, img_size[1]], [offset, img_size[1]]])
+							[self.img_size[0]-200, self.img_size[1]], [200, self.img_size[1]]])
+		dst = np.float32([[offset, offset], [self.img_size[0]-offset, offset],
+							[self.img_size[0]-offset, self.img_size[1]], [offset, self.img_size[1]]])
 
-		M = cv2.getPerspectiveTransform(src, dst)
-		Minv = cv2.getPerspectiveTransform(dst, src)
-		warped = cv2.warpPerspective(undist_img, M, img_size)
-		return warped, Minv
+		self.M = cv2.getPerspectiveTransform(src, dst)
+		self.Minv = cv2.getPerspectiveTransform(dst, src)
+		return cv2.warpPerspective(undist_img, self.M, self.img_size)
+
+	def unwarp_image(self, undist_img):
+		return cv2.warpPerspective(undist_img, self.Minv, self.img_size)
 
 	def process_image(self, image):
 		"""
@@ -82,9 +86,9 @@ class Lane():
 		read image frames from video and draw lane line
 		"""
 		undist_img = self.undistort(image)
-		thresh_binary = self.apply_threshold(undist_img) # find lane line by threshold function
+		thresh_img = self.apply_threshold(undist_img) # find lane line by threshold function
 
-		warped_binary, Minv = perspective_transform(thresh_binary) # get warped binary image
+		warped_img = self.warp_image(thresh_img) # get warped binary image
 		result = find_lines(warped_binary, Minv, image, undist_img) # find lane lines and draw area
 		return result
 
