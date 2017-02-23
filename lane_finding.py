@@ -13,6 +13,8 @@ class LaneLineTracker():
 		self.ploty = None
 		self.left_fitx = None
 		self.right_fitx = None
+		self.left_fit = None
+		self.right_fit = None
 
 	def calc_curvature(self):
 		# Define conversions in x and y from pixels space to meters
@@ -28,29 +30,41 @@ class LaneLineTracker():
 		# Now our radius of curvature is in meters
 		return (left_curverad, 'm', right_curverad, 'm')
 
+	def reset_lines(self, binary_warped):
+		self.found = False
+		self.find_lines(binary_warped)
+		return
+
 	def find_lines(self, binary_warped):
 		if self.found:
 			nonzero = binary_warped.nonzero()
 			nonzeroy = np.array(nonzero[0])
 			nonzerox = np.array(nonzero[1])
-			margin = 100
+			margin = 50
 			left_lane_inds = ((nonzerox > (self.left_fit[0]*(nonzeroy**2) + self.left_fit[1]*nonzeroy + self.left_fit[2] - margin)) &
-								(nonzerox < (self.left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] + margin)))
+								(nonzerox < (self.left_fit[0]*(nonzeroy**2) + self.left_fit[1]*nonzeroy + self.left_fit[2] + margin)))
 			right_lane_inds = ((nonzerox > (self.right_fit[0]*(nonzeroy**2) + self.right_fit[1]*nonzeroy + self.right_fit[2] - margin)) &
 								(nonzerox < (self.right_fit[0]*(nonzeroy**2) + self.right_fit[1]*nonzeroy + self.right_fit[2] + margin)))
 
+			if not (any(left_lane_inds) and any(right_lane_inds)):
+				self.reset_lines(binary_warped)
+				print("NOT FOUND")
+				return
+
 			# Again, extract left and right line pixel positions
 			leftx = nonzerox[left_lane_inds]
-			lefty = nonzeroy[left_lane_inds] 
+			lefty = nonzeroy[left_lane_inds]
 			rightx = nonzerox[right_lane_inds]
 			righty = nonzeroy[right_lane_inds]
 			# Fit a second order polynomial to each
-			left_fit = np.polyfit(lefty, leftx, 2)
-			right_fit = np.polyfit(righty, rightx, 2)
+			print("=======================")
+			print(left_lane_inds)
+			self.left_fit = np.polyfit(lefty, leftx, 2)
+			self.right_fit = np.polyfit(righty, rightx, 2)
 			# Generate x and y values for plotting
-			ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
-			left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-			right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+			self.ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
+			self.left_fitx = self.left_fit[0]*self.ploty**2 + self.left_fit[1]*self.ploty + self.left_fit[2]
+			self.right_fitx = self.right_fit[0]*self.ploty**2 + self.right_fit[1]*self.ploty + self.right_fit[2]
 
 		else:
 			# Assuming you have created a warped binary image called "binary_warped"
@@ -110,7 +124,6 @@ class LaneLineTracker():
 			# Concatenate the arrays of indices
 			left_lane_inds = np.concatenate(left_lane_inds)
 			right_lane_inds = np.concatenate(right_lane_inds)
-			print(left_lane_inds)
 
 			# Extract left and right line pixel positions
 			leftx = nonzerox[left_lane_inds]
@@ -119,22 +132,18 @@ class LaneLineTracker():
 			righty = nonzeroy[right_lane_inds]
 
 			# Fit a second order polynomial to each
-			print(lefty)
-			left_fit = np.polyfit(lefty, leftx, 2)
-			right_fit = np.polyfit(righty, rightx, 2)
+			self.left_fit = np.polyfit(lefty, leftx, 2)
+			self.right_fit = np.polyfit(righty, rightx, 2)
 
 			# Generate x and y values for plotting
-			ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
-			left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-			right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-
-		self.ploty = ploty
-		self.left_fitx = left_fitx
-		self.right_fitx = right_fitx
+			self.ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
+			self.left_fitx = self.left_fit[0]*self.ploty**2 + self.left_fit[1]*self.ploty + self.left_fit[2]
+			self.right_fitx = self.right_fit[0]*self.ploty**2 + self.right_fit[1]*self.ploty + self.right_fit[2]
+			self.found = True
 
 		curvatures = self.calc_curvature()
 		print(curvatures)
-		offset_from_center = (binary_warped.shape[1]/2 - (left_fitx[-1]+right_fitx[-1])/2) * 3.7/700
+		offset_from_center = (binary_warped.shape[1]/2 - (self.left_fitx[-1]+self.right_fitx[-1])/2) * 3.7/700
 		print(self.left_fitx[-1], self.right_fitx[-1], offset_from_center, 'm')
 		return binary_warped
 
@@ -193,7 +202,7 @@ class Lane():
 		return combined_binary
 
 	def warp_image(self, undist_img):
-		if self.M:
+		if self.M is not None:
 			return cv2.warpPerspective(undist_img, self.M, self.img_size)
 		offset_x = 100 # offset for x direction of undistorted image
 		offset_y = 130 # offset for y direction of undistorted image
@@ -229,8 +238,6 @@ class Lane():
 		newwarp = cv2.warpPerspective(color_warp, self.Minv, self.img_size) 
 		# Combine the result with the original image
 		result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
-		#plt.imshow(result)
-		#plt.show()
 		return result
 
 	def process_image(self, image):
@@ -257,11 +264,11 @@ def main():
 	img_size = (image.shape[1], image.shape[0])
 	lane = Lane(img_size, objpoints, imgpoints)
 	result = lane.process_image(image)
-	plt.imshow(result)
-	plt.show()
+	#plt.imshow(result)
+	#plt.show()
 
-	"""
 	# apply process_image function to the test images
+	"""
 	input_dir = "test_images"
 	output_dir = "output_images"
 
@@ -272,13 +279,15 @@ def main():
 		result_image = lane.process_image(image)
 		plt.imsave(os.path.join(output_dir, fname), result_image)
 	"""
+
 	# apply process_image function to the video
-	"""
+	
 	output = 'test2.mp4'
 	clip_input = VideoFileClip("project_video.mp4")
-	clip = clip_input.fl_image(process_image)
+	lane = Lane(img_size, objpoints, imgpoints)
+	clip = clip_input.fl_image(lambda x: lane.process_image(x))
 	clip.write_videofile(output, audio=False)
-	"""
+	
 
 if __name__ == '__main__':
 	main()
