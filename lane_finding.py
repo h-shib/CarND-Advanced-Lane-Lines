@@ -14,17 +14,17 @@ class LaneLineTracker():
 		self.left_fitx = None
 		self.right_fitx = None
 
-	def calc_curvature(self, ploty, leftx, rightx):
+	def calc_curvature(self):
 		# Define conversions in x and y from pixels space to meters
 		ym_per_pix = 30/720 # meters per pixel in y dimension
 		xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
 		# Fit new polynomials to x,y in world space
-		left_fit_cr = np.polyfit(ploty*ym_per_pix, leftx*xm_per_pix, 2)
-		right_fit_cr = np.polyfit(ploty*ym_per_pix, rightx*xm_per_pix, 2)
+		left_fit_cr = np.polyfit(self.ploty*ym_per_pix, self.left_fitx*xm_per_pix, 2)
+		right_fit_cr = np.polyfit(self.ploty*ym_per_pix, self.right_fitx*xm_per_pix, 2)
 		# Calculate the new radii of curvature
-		left_curverad = ((1 + (2*left_fit_cr[0]*np.max(ploty)*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
-		right_curverad = ((1 + (2*right_fit_cr[0]*np.max(ploty)*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+		left_curverad = ((1 + (2*left_fit_cr[0]*np.max(self.ploty)*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+		right_curverad = ((1 + (2*right_fit_cr[0]*np.max(self.ploty)*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
 		# Now our radius of curvature is in meters
 		return (left_curverad, 'm', right_curverad, 'm')
 
@@ -132,7 +132,7 @@ class LaneLineTracker():
 		self.left_fitx = left_fitx
 		self.right_fitx = right_fitx
 
-		curvatures = self.calc_curvature(self.ploty, self.left_fitx, self.right_fitx)
+		curvatures = self.calc_curvature()
 		print(curvatures)
 		offset_from_center = (binary_warped.shape[1]/2 - (left_fitx[-1]+right_fitx[-1])/2) * 3.7/700
 		print(self.left_fitx[-1], self.right_fitx[-1], offset_from_center, 'm')
@@ -267,7 +267,8 @@ def main():
 
 	for fname in os.listdir(input_dir):
 		image = plt.imread(os.path.join(input_dir, fname))
-		lane = Lane(objpoints, imgpoints)
+		img_size = (image.shape[1], image.shape[0])
+		lane = Lane(img_size, objpoints, imgpoints)
 		result_image = lane.process_image(image)
 		plt.imsave(os.path.join(output_dir, fname), result_image)
 	"""
