@@ -259,16 +259,7 @@ def main():
 	objpoints = dist_data['objpoints']
 	imgpoints = dist_data['imgpoints']
 
-	# debug
-	image = plt.imread('test_images/test5.jpg')
-	img_size = (image.shape[1], image.shape[0])
-	lane = Lane(img_size, objpoints, imgpoints)
-	result = lane.process_image(image)
-	#plt.imshow(result)
-	#plt.show()
-
 	# apply process_image function to the test images
-	"""
 	input_dir = "test_images"
 	output_dir = "output_images"
 
@@ -278,10 +269,8 @@ def main():
 		lane = Lane(img_size, objpoints, imgpoints)
 		result_image = lane.process_image(image)
 		plt.imsave(os.path.join(output_dir, fname), result_image)
-	"""
 
 	# apply process_image function to the video
-	
 	output = 'test2.mp4'
 	clip_input = VideoFileClip("project_video.mp4")
 	lane = Lane(img_size, objpoints, imgpoints)
