@@ -275,7 +275,7 @@ def main():
 		plt.imsave(os.path.join(output_dir, fname), result_image)
 
 	# apply process_image function to the video
-	output = 'test2.mp4'
+	output = 'project_video_result.mp4'
 	clip_input = VideoFileClip("project_video.mp4")
 	lane = Lane(img_size, objpoints, imgpoints)
 	clip = clip_input.fl_image(lambda x: lane.process_image(x))
