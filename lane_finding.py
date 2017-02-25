@@ -28,7 +28,7 @@ class LaneLineTracker():
 		left_curverad = ((1 + (2*left_fit_cr[0]*np.max(self.ploty)*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
 		right_curverad = ((1 + (2*right_fit_cr[0]*np.max(self.ploty)*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
 		# Now our radius of curvature is in meters
-		return (left_curverad, 'm', right_curverad, 'm')
+		return (left_curverad, right_curverad)
 
 	def reset_lines(self, binary_warped):
 		self.found = False
@@ -141,10 +141,6 @@ class LaneLineTracker():
 			self.right_fitx = self.right_fit[0]*self.ploty**2 + self.right_fit[1]*self.ploty + self.right_fit[2]
 			self.found = True
 
-		curvatures = self.calc_curvature()
-		print(curvatures)
-		offset_from_center = (binary_warped.shape[1]/2 - (self.left_fitx[-1]+self.right_fitx[-1])/2) * 3.7/700
-		print(self.left_fitx[-1], self.right_fitx[-1], offset_from_center, 'm')
 		return binary_warped
 
 
@@ -238,6 +234,14 @@ class Lane():
 		newwarp = cv2.warpPerspective(color_warp, self.Minv, self.img_size) 
 		# Combine the result with the original image
 		result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
+
+		# Calculate curvatures and offset from center of the lane
+		curvatures = self.lines.calc_curvature()
+		curvatures_text = "left line radius: {:8.2f}m, right line radius: {:8.2f}m".format(float(curvatures[0]), float(curvatures[1]))
+		cv2.putText(result, curvatures_text, (10, 20), cv2.FONT_HERSHEY_PLAIN, 1.3, (255, 255, 255))
+		offset_from_center = (result.shape[1]/2 - (self.lines.left_fitx[-1]+self.lines.right_fitx[-1])/2) * 3.7/700
+		offset_from_center_text = "offset from center of the line: {:2.5f}m".format(offset_from_center)
+		cv2.putText(result, offset_from_center_text, (10, 40), cv2.FONT_HERSHEY_PLAIN, 1.3, (255, 255, 255))
 		return result
 
 	def process_image(self, image):
