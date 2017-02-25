@@ -20,7 +20,6 @@ The goals / steps of this project are the following:
 [image5]: ./output_images/warped_straight_lines1.jpg
 [image6]: ./output_images/fit_polynomial_test5.png
 [image7]: ./output_images/processed_test5.jpg
-[video1]: ./project_video_result.mp4
 
 ### [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 ---
@@ -105,7 +104,6 @@ I implemented this step in lines 225-241 in my code in "lane_finding.py" in the 
 ### Pipeline (video)
 
 Here's a [link to my video result](./project_video_result.mp4)
-![resutl video][video1]
 
 ---
 
