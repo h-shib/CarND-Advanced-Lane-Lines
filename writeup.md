@@ -111,4 +111,6 @@ Here's a [link to my video result](./project_video_result.mp4)
 
 This was the good exercise to understand how to find lane lines with computer vision approach. I learned a lot of techniques from the lesson and could apply those into this problem.
 One of the hardest steps of this exercise was perspective transformation. Althogh there might be more robust mathmatical approach, I applied `cv2.getPerspectiveTransform()` with fixed src and dst parameters. I thought this was the reason why that deeplearning approach is prefered in recent studies because we don't have to tweak the parameters to get lane lines.
+The case that this pipeline would fail is when the solid shade lines are in the frame such as in the `challenge_video.mp4`. When it happened, `find_lines()` function would shade as the lane line and fail to detect the actual lane.
+To overcome it, I could apply region of interest mask to the image and store some previous lane line parameters to estimate next lane lines.
 Anyway, I could implement basic lane finding pipline in this project.
